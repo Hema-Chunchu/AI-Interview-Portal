@@ -1,16 +1,17 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const userName = localStorage.getItem('userName') || 'John Doe';
-  const userEmail = localStorage.getItem('userEmail') || 'john.doe@email.com';
+  const { user, logout } = useAuth();
+
+  const userName = user?.name || localStorage.getItem('userName') || 'John Doe';
+  const userEmail = user?.email || localStorage.getItem('userEmail') || 'john.doe@email.com';
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userEmail');
+    logout();
     navigate('/login');
   };
 
@@ -36,15 +37,6 @@ const Sidebar = () => {
         </svg>
       )
     },
-    // {
-    //   path: '#practice',
-    //   label: 'Practice',
-    //   icon: (
-    //     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    //       <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-    //     </svg>
-    //   )
-    // },
     {
       path: '#history',
       label: 'History',
@@ -55,37 +47,6 @@ const Sidebar = () => {
         </svg>
       )
     },
-    // {
-    //   path: '#analytics',
-    //   label: 'Analytics',
-    //   icon: (
-    //     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    //       <line x1="18" y1="20" x2="18" y2="10" />
-    //       <line x1="12" y1="20" x2="12" y2="4" />
-    //       <line x1="6" y1="20" x2="6" y2="14" />
-    //     </svg>
-    //   )
-    // },
-    // {
-    //   path: '#resources',
-    //   label: 'Resources',
-    //   icon: (
-    //     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    //       <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-    //       <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-    //     </svg>
-    //   )
-    // },
-    // {
-    //   path: '#mock-tests',
-    //   label: 'Mock Tests',
-    //   icon: (
-    //     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    //       <path d="M9 11l3 3L22 4" />
-    //       <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-    //     </svg>
-    //   )
-    // },
     {
       path: '#settings',
       label: 'Settings',
@@ -136,14 +97,12 @@ const Sidebar = () => {
 
       <div className="sidebar-profile">
         <Link to="/profile" className="profile-avatar-wrapper">
-          <img 
-            className="profile-avatar" 
-            src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80" 
-            alt="User Profile" 
-          />
+          <div className="profile-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #00c853, #00e676)', color: '#121820', fontWeight: 'bold', borderRadius: '50%', width: '36px', height: '36px', fontSize: '0.9rem' }}>
+            {userName ? userName.charAt(0).toUpperCase() : 'U'}
+          </div>
           <div className="profile-info">
             <span className="profile-name">{userName}</span>
-            <span className="profile-sub">View Profile</span>
+            <span className="profile-sub">{userEmail}</span>
           </div>
         </Link>
         <button className="btn-logout" title="Log Out" onClick={handleLogout}>

@@ -1,12 +1,22 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
-  if (!token) {
-    // If not authenticated, redirect to /login
-    return <Navigate to="/login" replace />;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#0c1015' }}>
+        <div className="spinner" style={{ width: '32px', height: '32px', borderWidth: '3px' }}></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    // If not authenticated, redirect to /login preserving target location
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return children;

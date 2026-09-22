@@ -1,46 +1,70 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const LoginPage = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
+  const { login, register } = useAuth();
   const navigate = useNavigate();
-  const API_BASE_URL = 'http://localhost:5000/api';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Field validation
+    if (isSignUp && !name.trim()) {
+      setError('Please provide your full name.');
+      return;
+    }
+
+    if (!email.trim() || !password) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Please provide a valid email address.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (isSignUp && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
     setLoading(true);
 
-    try {
-      const endpoint = isSignUp ? '/auth/register' : '/auth/login';
-      const payload = isSignUp ? { name, email, password } : { email, password };
-      
-      const response = await axios.post(`${API_BASE_URL}${endpoint}`, payload);
-      
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userName', response.data.user.name || name || 'John Doe');
-      localStorage.setItem('userEmail', response.data.user.email || email);
-      
-      // Navigate to interviews selection
+    let result;
+    if (isSignUp) {
+      result = await register(name.trim(), email.trim(), password, confirmPassword);
+    } else {
+      result = await login(email.trim(), password);
+    }
+
+    setLoading(false);
+
+    if (result.success) {
       navigate('/interviews');
-    } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Authentication failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.message || 'Authentication failed. Please check your credentials.');
     }
   };
 
   const handleSocialMock = (platform) => {
     alert(`Mock Social Auth: Connecting with ${platform}...`);
-    // Seed token and profile for mock login convenience
     localStorage.setItem('token', 'mock_jwt_token_123456');
     localStorage.setItem('userName', 'John Doe');
     localStorage.setItem('userEmail', 'john.doe@email.com');
@@ -167,6 +191,21 @@ const LoginPage = () => {
               />
             </div>
 
+            {isSignUp && (
+              <div className="form-group">
+                <label htmlFor="confirmPassword">Confirm Password</label>
+                <input 
+                  type="password" 
+                  id="confirmPassword" 
+                  className="input-field" 
+                  placeholder="••••••••" 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required={isSignUp}
+                />
+              </div>
+            )}
+
             {!isSignUp && (
               <a href="#forgot" className="forgot-password" onClick={(e) => {e.preventDefault(); alert('Mock password reset requested.');}}>
                 Forgot password?
@@ -189,14 +228,14 @@ const LoginPage = () => {
             {isSignUp ? (
               <>
                 Already have an account?{' '}
-                <a href="#signin" onClick={(e) => { e.preventDefault(); setIsSignUp(false); }}>
+                <a href="#signin" onClick={(e) => { e.preventDefault(); setIsSignUp(false); setError(''); }}>
                   Sign In
                 </a>
               </>
             ) : (
               <>
                 Don't have an account?{' '}
-                <a href="#signup" onClick={(e) => { e.preventDefault(); setIsSignUp(true); }}>
+                <a href="#signup" onClick={(e) => { e.preventDefault(); setIsSignUp(true); setError(''); }}>
                   Sign up
                 </a>
               </>
