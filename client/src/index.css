@@ -1,0 +1,292 @@
+/* =========================================
+   SIDEBAR
+========================================= */
+
+.sidebar {
+  width: 260px;
+  height: 100vh;
+
+  position: fixed;
+  left: 0;
+  top: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  background: #111820;
+
+  border-right: 1px solid #222c36;
+
+  box-sizing: border-box;
+
+  z-index: 1000;
+}
+
+
+/* =========================================
+   LOGO
+========================================= */
+
+.sidebar-logo {
+  height: 90px;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 35px;
+
+  gap: 14px;
+
+  color: #ffffff;
+
+  font-size: 20px;
+  font-weight: 700;
+
+  flex-shrink: 0;
+}
+
+.sidebar-logo svg {
+  color: #00c853;
+}
+
+
+/* =========================================
+   NAVIGATION
+========================================= */
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+
+  padding: 20px 20px 0;
+
+  gap: 8px;
+}
+
+
+/* =========================================
+   NAVIGATION ITEM
+========================================= */
+
+.sidebar-nav-item {
+  width: 100%;
+  min-height: 52px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 18px;
+
+  padding: 0 18px;
+
+  box-sizing: border-box;
+
+  border-radius: 8px;
+
+  background: transparent;
+
+  border: none;
+
+  color: #8fa3b8;
+
+  text-decoration: none;
+
+  font-family: inherit;
+
+  font-size: 16px;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.sidebar-nav-item svg {
+  flex-shrink: 0;
+}
+
+
+/* HOVER */
+
+.sidebar-nav-item:hover {
+  color: #ffffff;
+
+  background: rgba(255, 255, 255, 0.04);
+}
+
+
+/* ACTIVE */
+
+.sidebar-nav-item.active {
+  color: #ffffff;
+
+  background: rgba(0, 200, 83, 0.12);
+
+  border: 1px solid rgba(0, 200, 83, 0.2);
+}
+
+.sidebar-nav-item.active svg {
+  color: #00c853;
+}
+
+
+/* =========================================
+   LOGOUT
+========================================= */
+
+.sidebar-logout {
+  color: #8fa3b8;
+
+  margin-top: 0;
+}
+
+.sidebar-logout:hover {
+  color: #ff6b6b;
+
+  background: rgba(255, 70, 70, 0.08);
+}
+
+.sidebar-logout svg {
+  transition: color 0.2s ease;
+}
+
+.sidebar-logout:hover svg {
+  color: #ff6b6b;
+}
+
+
+/* =========================================
+   BOTTOM PROFILE AREA
+========================================= */
+
+.sidebar-bottom {
+  margin-top: auto;
+
+  padding: 20px;
+
+  border-top: 1px solid #222c36;
+
+  display: flex;
+
+  justify-content: flex-end;
+}
+
+
+/* =========================================
+   PROFILE
+========================================= */
+
+.sidebar-profile {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  padding: 10px;
+
+  border-radius: 10px;
+
+  cursor: pointer;
+
+  transition: background 0.2s ease;
+}
+
+.sidebar-profile:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+
+/* =========================================
+   PROFILE IMAGE
+========================================= */
+
+.sidebar-profile-image {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 50%;
+
+  object-fit: cover;
+
+  border: 2px solid #303b47;
+
+  order: 2;
+}
+
+
+/* =========================================
+   PROFILE INFORMATION
+========================================= */
+
+.sidebar-profile-info {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-end;
+
+  gap: 3px;
+
+  order: 1;
+}
+
+.sidebar-profile-name {
+  color: #ffffff;
+
+  font-size: 14px;
+
+  font-weight: 600;
+}
+
+.sidebar-profile-link {
+  color: #7f93a8;
+
+  font-size: 12px;
+}
+
+
+/* =========================================
+   MAIN CONTENT
+========================================= */
+
+.main-content {
+  margin-left: 260px;
+
+  min-height: 100vh;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 768px) {
+
+  .sidebar {
+    width: 220px;
+  }
+
+  .sidebar-logo {
+    padding: 0 25px;
+  }
+
+  .sidebar-nav {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .sidebar-nav-item {
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .main-content {
+    margin-left: 220px;
+  }
+}
