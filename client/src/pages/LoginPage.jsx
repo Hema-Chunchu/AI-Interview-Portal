@@ -11,7 +11,7 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login, register } = useAuth();
+  const { login, register, loginWithSocial } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -64,10 +64,25 @@ const LoginPage = () => {
   };
 
   const handleSocialMock = (platform) => {
-    alert(`Mock Social Auth: Connecting with ${platform}...`);
-    localStorage.setItem('token', 'mock_jwt_token_123456');
-    localStorage.setItem('userName', 'John Doe');
-    localStorage.setItem('userEmail', 'john.doe@email.com');
+    let candidateName = name.trim();
+    let candidateEmail = email.trim();
+
+    if (!candidateName) {
+      const enteredName = prompt(`Enter your Full Name for ${platform} sign-in:`, "");
+      candidateName = (enteredName && enteredName.trim()) ? enteredName.trim() : `${platform} User`;
+    }
+
+    if (!candidateEmail) {
+      const defaultEmail = candidateName ? `${candidateName.toLowerCase().replace(/\s+/g, '.')}` : 'user';
+      const enteredEmail = prompt(`Enter your Email address:`, `${defaultEmail}@${platform.toLowerCase()}.com`);
+      candidateEmail = (enteredEmail && enteredEmail.trim()) ? enteredEmail.trim() : `${defaultEmail}@${platform.toLowerCase()}.com`;
+    }
+
+    loginWithSocial({
+      name: candidateName,
+      email: candidateEmail
+    });
+
     navigate('/interviews');
   };
 

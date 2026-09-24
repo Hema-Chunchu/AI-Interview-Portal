@@ -76,7 +76,10 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, data };
     } catch (err) {
-      return { success: false, message: err.message };
+      const message = err.message === 'Failed to fetch' || err.name === 'TypeError'
+        ? 'Cannot connect to server. Please make sure the backend is running on port 5000 (cd server && node server.js).'
+        : err.message;
+      return { success: false, message };
     }
   };
 
@@ -103,8 +106,28 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, data };
     } catch (err) {
-      return { success: false, message: err.message };
+      const message = err.message === 'Failed to fetch' || err.name === 'TypeError'
+        ? 'Cannot connect to server. Please make sure the backend is running on port 5000 (cd server && node server.js).'
+        : err.message;
+      return { success: false, message };
     }
+  };
+
+  const loginWithSocial = (userData = {}, customToken = null) => {
+    const tokenToSet = customToken || `social_jwt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const userToSet = {
+      name: userData.name || 'Candidate',
+      email: userData.email || 'candidate@example.com'
+    };
+
+    localStorage.setItem('token', tokenToSet);
+    localStorage.setItem('userName', userToSet.name);
+    localStorage.setItem('userEmail', userToSet.email);
+
+    setToken(tokenToSet);
+    setUser(userToSet);
+
+    return { success: true, data: { user: userToSet, token: tokenToSet } };
   };
 
   const logout = () => {
@@ -122,6 +145,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!token,
     login,
     register,
+    loginWithSocial,
     logout
   };
 

@@ -4,8 +4,15 @@ const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 
 // Helper function to check DB connection
-const isDbConnected = (res) => {
+const isDbConnected = async (res) => {
     // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    if (mongoose.connection.readyState === 2) {
+        for (let i = 0; i < 15; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            if (mongoose.connection.readyState === 1) break;
+        }
+    }
+
     if (mongoose.connection.readyState === 0) {
         res.status(503).json({
             message: "Database connection is offline. Please ensure MONGO_URI is configured correctly in server/.env"
@@ -60,7 +67,7 @@ const registerUser = async (req, res) => {
         }
 
         // 5. DB Connectivity Check
-        if (!isDbConnected(res)) return;
+        if (!(await isDbConnected(res))) return;
 
         const normalizedEmail = email.toLowerCase().trim();
 
@@ -120,7 +127,7 @@ const loginUser = async (req, res) => {
         }
 
         // 2. DB Connectivity Check
-        if (!isDbConnected(res)) return;
+        if (!(await isDbConnected(res))) return;
 
         const normalizedEmail = email.toLowerCase().trim();
 
@@ -167,7 +174,7 @@ const loginUser = async (req, res) => {
 // @access  Private
 const getMe = async (req, res) => {
     try {
-        if (!isDbConnected(res)) return;
+        if (!(await isDbConnected(res))) return;
 
         const user = await User.findById(req.userId).select("-password");
 

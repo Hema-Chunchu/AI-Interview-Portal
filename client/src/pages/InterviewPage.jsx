@@ -244,84 +244,85 @@ const InterviewPage = () => {
     }
   };
 
-  // Stop Recording and upload response
-  const stopAndSubmitAnswer = async () => {
-    if (!isRecording) return;
-    setIsRecording(false);
-
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-    }
-
+  // Save current answer to backend
+  const saveAnswer = async (textToSave) => {
     const currentQuestion = questions[currentIdx];
     if (!currentQuestion) return;
 
-    // Send answer to backend
+    const finalAnswer = (textToSave !== undefined ? textToSave : transcript) || '';
+
     try {
-      const payload = {
-        questionId: currentQuestion._id,
-        transcript: transcript || 'No response recorded.'
-      };
-
-      // Set up simple form data
-      const formData = new FormData();
-      formData.append('questionId', currentQuestion._id);
-      formData.append('transcript', transcript || 'No response recorded.');
-
-      // If we have real audio chunks recorded, package into a blob and upload
-      if (chunksRef.current.length > 0) {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        formData.append('recording', audioBlob, `recording-${currentQuestion._id}.webm`);
-      }
-
-      await axios.post(`${API_BASE_URL}/answers`, formData, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
+      await axios.post(
+        `${API_BASE_URL}/answers`,
+        {
+          questionId: currentQuestion._id,
+          transcript: finalAnswer
+        },
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
-      });
+      );
       
-      // Update locally
       const updatedQuestions = [...questions];
-      updatedQuestions[currentIdx].transcript = transcript;
+      updatedQuestions[currentIdx] = { ...updatedQuestions[currentIdx], transcript: finalAnswer };
       setQuestions(updatedQuestions);
-      setAnswersSubmitted(prev => prev + 1);
 
+      if (finalAnswer.trim()) {
+        setAnswersSubmitted((prev) => {
+          const count = updatedQuestions.filter(q => (q.transcript || '').trim()).length;
+          return count;
+        });
+      }
     } catch (err) {
       console.warn('Failed to submit answer, storing locally.', err);
       const updatedQuestions = [...questions];
-      updatedQuestions[currentIdx].transcript = transcript || 'Sample mock transcript.';
+      updatedQuestions[currentIdx] = { ...updatedQuestions[currentIdx], transcript: finalAnswer };
       setQuestions(updatedQuestions);
-      setAnswersSubmitted(prev => prev + 1);
     }
+  };
+
+  // Stop Recording and upload response
+  const stopAndSubmitAnswer = async () => {
+    if (isRecording) {
+      setIsRecording(false);
+      if (recognitionRef.current) recognitionRef.current.stop();
+      if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+    }
+    await saveAnswer(transcript);
   };
 
   const handleNext = async () => {
     if (isRecording) {
-      await stopAndSubmitAnswer();
+      setIsRecording(false);
+      if (recognitionRef.current) recognitionRef.current.stop();
+      if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
     }
+    await saveAnswer(transcript);
 
     if (currentIdx < questions.length - 1) {
-      setCurrentIdx(currentIdx + 1);
-      setTranscript('');
+      const nextIdx = currentIdx + 1;
+      setCurrentIdx(nextIdx);
+      setTranscript(questions[nextIdx]?.transcript || '');
       setLiveNotes(['Structuring thoughts logically', 'Explaining component design choice']);
     } else {
-      // Last question completed, trigger finish
       handleFinishInterview();
     }
   };
 
   const handleFinishInterview = async () => {
     if (isRecording) {
-      await stopAndSubmitAnswer();
+      setIsRecording(false);
+      if (recognitionRef.current) recognitionRef.current.stop();
+      if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
     }
+    await saveAnswer(transcript);
 
     setFinishing(true);
     try {
-      const response = await axios.post(
+      await axios.post(
         `${API_BASE_URL}/finish`,
         { sessionId },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -329,7 +330,6 @@ const InterviewPage = () => {
       navigate(`/report/${sessionId}`);
     } catch (err) {
       console.error('Failed to complete session evaluation', err);
-      // Navigate to mock report page
       navigate(`/report/${sessionId}?mock=true&role=${encodeURIComponent(role)}`);
     } finally {
       setFinishing(false);
@@ -440,14 +440,43 @@ const InterviewPage = () => {
               </button>
             </div>
 
-            {transcript && (
-              <div style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', padding: '1rem' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
-                  Live Transcript
+            {/* Transcript & Candidate Answer Input */}
+            <div style={{ marginTop: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                  {isRecording ? '🎙️ Live Speech Transcription' : '📝 Candidate Response (Voice or Type)'}
                 </div>
-                <p style={{ fontStyle: 'italic', fontSize: '0.95rem' }}>"{transcript}"</p>
+                {transcript && (
+                  <button 
+                    type="button" 
+                    onClick={() => saveAnswer(transcript)}
+                    style={{ background: 'none', border: 'none', color: 'var(--primary-green)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    ✓ Save Draft
+                  </button>
+                )}
               </div>
-            )}
+              <textarea
+                value={transcript}
+                onChange={(e) => {
+                  setTranscript(e.target.value);
+                  saveAnswer(e.target.value);
+                }}
+                placeholder={isRecording ? "Listening to your microphone..." : "Click 'Record Answer' to speak, or type your answer here..."}
+                style={{
+                  width: '100%',
+                  minHeight: '85px',
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.95rem',
+                  lineHeight: '1.5',
+                  resize: 'vertical',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
           </div>
 
           {/* Right Side Panel */}
