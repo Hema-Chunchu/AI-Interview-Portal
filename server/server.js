@@ -2,6 +2,9 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
+const authRoutes = require("./routes/authRoutes");
+const authMiddleware = require("./middleware/authMiddleware");
+
 const { interviewQuestions, getRandomQuestions } = require("./data/interviewQuestions");
 const { evaluateAnswer, generateSessionSummary } = require("./services/aiService");
 
@@ -16,17 +19,12 @@ const sessionsStore = new Map();
 app.use(express.json());
 app.use(cors());
 
-// Connect to MongoDB
-connectDB();
-
-const authRoutes = require("./routes/authRoutes");
-const authMiddleware = require("./middleware/authMiddleware");
-
-// Routes (supporting both /api/login and /api/auth/login specifications)
+// Authentication routes
 app.use("/api/auth", authRoutes);
 app.use("/api", authRoutes);
 
-// Test route
+connectDB();
+
 app.get("/", (req, res) => {
     res.send("AI Mock Interview Backend is running!");
 });
@@ -47,7 +45,6 @@ app.post("/api/sessions", (req, res) => {
     const { role } = req.body;
     const sessionId = "session_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
 
-    // Pick 4 random questions from the server dataset for this role
     const randomQuestions = getRandomQuestions(role, 4).map((text, idx) => ({
         _id: `q_${Date.now()}_${idx}`,
         sessionId,
@@ -79,7 +76,6 @@ app.get("/api/session/:id", (req, res) => {
         return res.json(sessionData);
     }
 
-    // Dynamic generation if session expired or refreshed
     const fallbackRole = req.query.role || "Technical Interview";
     const randomQuestions = getRandomQuestions(fallbackRole, 4).map((text, idx) => ({
         _id: `q_${Date.now()}_${idx}`,
@@ -98,8 +94,15 @@ app.get("/api/session/:id", (req, res) => {
         createdAt: new Date()
     };
 
-    sessionsStore.set(req.params.id, { session: fallbackSession, questions: randomQuestions });
-    res.json({ session: fallbackSession, questions: randomQuestions });
+    sessionsStore.set(req.params.id, {
+        session: fallbackSession,
+        questions: randomQuestions
+    });
+
+    res.json({
+        session: fallbackSession,
+        questions: randomQuestions
+    });
 });
 
 // POST /api/answers - Record candidate's answer
@@ -108,14 +111,20 @@ app.post("/api/answers", (req, res) => {
 
     for (const [sId, data] of sessionsStore.entries()) {
         const q = data.questions.find((item) => item._id === questionId);
+
         if (q) {
             q.transcript = transcript || "";
-            console.log(`[Answer Saved] Question ID: ${questionId} -> "${(transcript || '').slice(0, 40)}..."`);
+            console.log(
+                `[Answer Saved] Question ID: ${questionId} -> "${(transcript || "").slice(0, 40)}..."`
+            );
             break;
         }
     }
 
-    res.json({ success: true, message: "Answer recorded successfully" });
+    res.json({
+        success: true,
+        message: "Answer recorded successfully"
+    });
 });
 
 // POST /api/finish - Complete session with Gemini AI evaluation
@@ -124,31 +133,41 @@ app.post("/api/finish", async (req, res) => {
     const sessionData = sessionsStore.get(sessionId);
 
     if (sessionData) {
-        // Evaluate all questions in parallel using Gemini AI
         const evaluations = await Promise.all(
             sessionData.questions.map(async (q) => {
                 const evalResult = await evaluateAnswer(q.text, q.transcript);
+
                 q.score = evalResult.score;
                 q.feedback = evalResult.feedback;
+
                 return evalResult.score;
             })
         );
 
-        // Compute average score across answered questions (or all if all skipped)
         const answeredQs = sessionData.questions.filter(
-            (q) => (q.transcript || "").trim() && q.transcript !== "No response recorded."
+            (q) =>
+                (q.transcript || "").trim() &&
+                q.transcript !== "No response recorded."
         );
+
         let avgScore = 0;
+
         if (answeredQs.length > 0) {
-            const answeredTotal = answeredQs.reduce((acc, curr) => acc + (curr.score || 0), 0);
+            const answeredTotal = answeredQs.reduce(
+                (acc, curr) => acc + (curr.score || 0),
+                0
+            );
+
             avgScore = Math.round(answeredTotal / answeredQs.length);
         } else {
-            avgScore = Math.round(evaluations.reduce((a, b) => a + b, 0) / (evaluations.length || 1));
+            avgScore = Math.round(
+                evaluations.reduce((a, b) => a + b, 0) /
+                (evaluations.length || 1)
+            );
         }
 
         sessionData.session.score = avgScore;
 
-        // Generate executive summary with Gemini AI
         sessionData.session.summary = await generateSessionSummary(
             sessionData.session.role,
             avgScore,
@@ -166,16 +185,31 @@ app.post("/api/finish", async (req, res) => {
 // GET /api/history - Return candidate session history
 app.get("/api/history", (req, res) => {
     const historyList = [];
+
     for (const [_, data] of sessionsStore.entries()) {
         historyList.push(data.session);
     }
 
     if (historyList.length === 0) {
-        const d1 = new Date(); d1.setDate(d1.getDate() - 3);
-        const d2 = new Date(); d2.setDate(d2.getDate() - 1);
+        const d1 = new Date();
+        d1.setDate(d1.getDate() - 3);
+
+        const d2 = new Date();
+        d2.setDate(d2.getDate() - 1);
+
         historyList.push(
-            { _id: "s1", role: "Frontend Developer", score: 85, createdAt: d1 },
-            { _id: "s2", role: "System Design Interview", score: 78, createdAt: d2 }
+            {
+                _id: "s1",
+                role: "Frontend Developer",
+                score: 85,
+                createdAt: d1
+            },
+            {
+                _id: "s2",
+                role: "System Design Interview",
+                score: 78,
+                createdAt: d2
+            }
         );
     }
 
