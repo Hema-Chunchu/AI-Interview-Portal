@@ -2,19 +2,19 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
+const authRoutes = require("./routes/authRoutes");
 
 dotenv.config();
 
 const app = express();
 
-// Middleware
 app.use(express.json());
 app.use(cors());
 
-// Connect to MongoDB
+app.use("/api/auth", authRoutes);
+
 connectDB();
 
-// Test route
 app.get("/", (req, res) => {
     res.send("AI Mock Interview Backend is running!");
 });
