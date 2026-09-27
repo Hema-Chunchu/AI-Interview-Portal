@@ -38,9 +38,9 @@ const registerUser = async (req, res) => {
         const { name, email, password, confirmPassword } = req.body;
 
         // 1. Validation: Field presence
-        if (!name || !email || !password || !confirmPassword) {
+        if (!name || !email || !password) {
             return res.status(400).json({
-                message: "Please fill in all required fields."
+                message: "Please fill in all required fields (name, email, password)."
             });
         }
 
@@ -59,8 +59,8 @@ const registerUser = async (req, res) => {
             });
         }
 
-        // 4. Validation: Password match
-        if (password !== confirmPassword) {
+        // 4. Validation: Password match (if confirmPassword is provided)
+        if (confirmPassword && password !== confirmPassword) {
             return res.status(400).json({
                 message: "Passwords do not match."
             });
