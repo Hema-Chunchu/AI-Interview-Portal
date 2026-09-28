@@ -87,7 +87,7 @@ const ProfilePage = () => {
               <div className="profile-user-section">
                 <img 
                   className="profile-large-avatar" 
-                  src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80" 
+                  src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&q=80" 
                   alt="User Profile" 
                 />
                 <div className="profile-details">
@@ -127,23 +127,23 @@ const ProfilePage = () => {
             {/* Stats Counter Row */}
             <div className="stats-container">
               <div className="stat-box">
-                <div className="stat-value">{history.length + 19}</div>
+                <div className="stat-value">{history.length}</div>
                 <div className="stat-label">Interviews</div>
               </div>
               <div className="stat-box">
                 <div className="stat-value glow-green">
                   {history.length > 0 
                     ? Math.round(history.reduce((acc, curr) => acc + curr.score, 0) / history.length) 
-                    : 78}%
+                    : 0}%
                 </div>
                 <div className="stat-label">Avg. Score</div>
               </div>
               <div className="stat-box">
-                <div className="stat-value">18h 30m</div>
+                <div className="stat-value">0</div>
                 <div className="stat-label">Total Time</div>
               </div>
               <div className="stat-box">
-                <div className="stat-value">7</div>
+                <div className="stat-value">0</div>
                 <div className="stat-label">Badges</div>
               </div>
             </div>
@@ -195,7 +195,7 @@ const ProfilePage = () => {
                     </tbody>
                   </table>
                 </div>
-                <Link to="/interviews" className="view-all-link">View All</Link>
+                <Link to="/history" className="view-all-link">View All</Link>
               </div>
             )}
 

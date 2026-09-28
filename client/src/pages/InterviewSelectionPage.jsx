@@ -7,7 +7,7 @@ const InterviewSelectionPage = () => {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [starting, setStarting] = useState(false);
+  const [startingRole, setStartingRole] = useState(null);
   const navigate = useNavigate();
 
   const API_BASE_URL = 'http://localhost:5000/api';
@@ -37,7 +37,7 @@ const InterviewSelectionPage = () => {
   }, [token]);
 
   const handleStartInterview = async (role) => {
-    setStarting(true);
+    setStartingRole(role);
     setError('');
 
     try {
@@ -55,7 +55,7 @@ const InterviewSelectionPage = () => {
       const mockSessionId = 'mock_session_' + Date.now();
       navigate(`/interview/${mockSessionId}?role=${encodeURIComponent(role)}`);
     } finally {
-      setStarting(false);
+      setStartingRole(null);
     }
   };
 
@@ -88,10 +88,10 @@ const InterviewSelectionPage = () => {
                 </div>
                 <button 
                   className="btn-primary" 
-                  disabled={starting}
+                  disabled={startingRole !== null}
                   onClick={() => handleStartInterview(item.role)}
                 >
-                  {starting ? 'Initializing...' : 'Start Interview'}
+                  {startingRole === item.role ? 'Initializing...' : 'Start Interview'}
                 </button>
               </div>
             ))}

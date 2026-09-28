@@ -134,6 +134,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('userName');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('portal_history');
     setToken(null);
     setUser(null);
   };

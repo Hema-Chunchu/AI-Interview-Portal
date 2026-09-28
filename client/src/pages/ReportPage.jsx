@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
 
 const ReportPage = () => {
   const { id: sessionId } = useParams();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const API_BASE_URL = 'http://localhost:5000/api';
@@ -14,48 +13,51 @@ const ReportPage = () => {
   const [session, setSession] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchSessionReport = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/session/${sessionId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setSession(response.data.session);
-        setQuestions(response.data.questions);
-      } catch (err) {
-        console.error('Failed to load session report from server', err);
-        // Fallback mock report
-        const isMockMode = searchParams.get('mock') === 'true' || true;
-        const mockRole = searchParams.get('role') || 'System Design Interview';
-        
-        const mockSession = {
-          _id: sessionId,
-          role: mockRole,
-          score: 82,
-          summary: 'The candidate demonstrated a clear and structured approach to designing high-scale web architectures. Good component breakdown and scalability analysis, but should detail fault tolerance mechanism and cache eviction policies.',
-          createdAt: new Date()
-        };
+        let loadedSession = null;
+        let loadedQuestions = [];
 
-        let mockQs = [
-          {
-            text: 'Let\'s begin. Design a URL shortener like bit.ly. Explain the high-level system-design.',
-            transcript: 'First we need a web server to receive request. Then a database to store short URLs. We can use a NoSQL database like MongoDB. The short URL can be hashed from the original URL using MD5 or Base62 hash. To scale, we can add a Redis cache layer for popular links.',
-            score: 85,
-            feedback: 'Excellent component selection. Good reasoning about Redis cache insertion. Try to address how collision resolution in hashing works in detail.',
-            recordingUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
-          },
-          {
-            text: 'How would you design a rate limiting system for a public API? What storage and algorithms would you use?',
-            transcript: 'We can use token bucket or leaking bucket algorithm. For storage we can use Redis because it is very fast and supports atomicity. The counter is decremented on request.',
-            score: 80,
-            feedback: 'Solid choices of algorithms. To improve, explain sliding window log algorithms and rate limiter placement in real networks.',
-            recordingUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'
+        // 1. Try backend
+        try {
+          const response = await axios.get(`${API_BASE_URL}/session/${sessionId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (response.data && response.data.session) {
+            loadedSession = response.data.session;
+            loadedQuestions = response.data.questions || [];
+            if ((!loadedSession.score || loadedSession.score === 0) && loadedSession.summary && loadedSession.summary.includes('pending')) {
+              try {
+                const localHistory = JSON.parse(localStorage.getItem('portal_history') || '[]');
+                const match = localHistory.find(item => item._id === sessionId);
+                if (match && match.score > 0) {
+                  loadedSession = { ...loadedSession, score: match.score, summary: match.summary };
+                  if (match.questions && match.questions.length > 0) loadedQuestions = match.questions;
+                }
+              } catch (e) {}
+            }
           }
-        ];
+        } catch (err) {
+          console.warn('Backend session fetch note:', err.message);
+        }
 
-        setSession(mockSession);
-        setQuestions(mockQs);
+
+
+
+        if (loadedSession) {
+          setSession(loadedSession);
+          setQuestions(loadedQuestions);
+          setError('');
+        } else {
+          setError('Interview session details could not be found.');
+        }
+      } catch (err) {
+        console.error('Failed to load session report:', err);
+        setError('Unable to load report from server. Please verify the session exists in History.');
       } finally {
         setLoading(false);
       }
@@ -69,13 +71,13 @@ const ReportPage = () => {
     try {
       const response = await axios.post(
         `${API_BASE_URL}/sessions`,
-        { role: session.role },
+        { role: session.role, questionCount: questions.length || 4 },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       navigate(`/interview/${response.data.sessionId}`);
     } catch (err) {
-      console.error(err);
-      navigate(`/interview/mock_session_${Date.now()}?role=${encodeURIComponent(session.role)}`);
+      console.error('Failed to create new session', err);
+      navigate(`/interview/session_${Date.now()}?role=${encodeURIComponent(session.role)}`);
     }
   };
 
@@ -86,29 +88,66 @@ const ReportPage = () => {
         <main className="main-content">
           <div className="loading-wrapper">
             <div className="spinner"></div>
-            <p style={{ color: 'var(--text-secondary)' }}>Compiling interview feedback...</p>
+            <p style={{ color: 'var(--text-secondary)' }}>Loading interview report card...</p>
           </div>
         </main>
       </div>
     );
   }
 
+  if (error || !session) {
+    return (
+      <div className="app-container">
+        <Sidebar />
+        <main className="main-content">
+          <div className="card-panel" style={{ textAlign: 'center', padding: '3.5rem 1.5rem', maxWidth: '600px', margin: '4rem auto' }}>
+            <h2 style={{ marginBottom: '1rem', fontFamily: 'var(--font-family-display)' }}>Session Not Found</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              {error || 'The requested interview scorecard does not exist or has expired.'}
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button className="btn-secondary-outline" onClick={() => navigate('/history')}>
+                Go to History
+              </button>
+              <button className="btn-primary" onClick={() => navigate('/interviews')}>
+                Start New Interview
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const answeredCount = questions.filter(q => (q.transcript || '').trim() && q.transcript !== 'No response recorded.').length;
+
   return (
     <div className="app-container">
       <Sidebar />
       <main className="main-content">
-        <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+              <span className="badge-difficulty" style={{ margin: 0 }}>
+                {session?.role || 'Technical Interview'}
+              </span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                {questions.length} Questions &bull; {answeredCount} Answered
+              </span>
+            </div>
             <h1 style={{ fontFamily: 'var(--font-family-display)', fontWeight: 800, fontSize: '2.2rem', marginBottom: '0.25rem' }}>
               Interview Report Card
             </h1>
             <p style={{ color: 'var(--text-secondary)' }}>
-              Completed on {new Date(session?.createdAt).toLocaleDateString()}
+              Completed on {new Date(session?.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(session?.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
-          <div className="btn-group">
+          <div className="btn-group" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button className="btn-secondary-outline" onClick={() => navigate('/history')}>
+              Back to History
+            </button>
             <button className="btn-secondary-outline" onClick={() => navigate('/profile')}>
-              Back to Dashboard
+              Dashboard
             </button>
             <button className="btn-primary" onClick={handleRetake}>
               Retake Interview
@@ -121,53 +160,58 @@ const ReportPage = () => {
           <div className="report-summary-box">
             <div className="score-summary-wrapper">
               <div className="overall-score-badge">
-                <span className="score-num">{session?.score}%</span>
-                <span className="score-lbl">Score</span>
+                <span className="score-num">{session?.score || 0}%</span>
+                <span className="score-lbl">Overall Score</span>
               </div>
               <div className="summary-text-block">
-                <h3>Executive Summary</h3>
-                <p>{session?.summary}</p>
+                <h3>AI Performance Executive Summary</h3>
+                <p>
+                  {session?.summary || 'The candidate has completed the interview session. Review detailed question-by-question scoring and feedback below.'}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Questions Breakdown */}
           <div className="question-feedback-list">
-            <h3 style={{ fontFamily: 'var(--font-family-display)', fontSize: '1.4rem', fontWeight: 700, margin: '1rem 0 0.5rem' }}>
-              Question Breakdown
+            <h3 style={{ fontFamily: 'var(--font-family-display)', fontSize: '1.4rem', fontWeight: 700, margin: '1.5rem 0 1rem' }}>
+              Question-by-Question Evaluation ({questions.length} Questions)
             </h3>
             
             {questions.map((q, idx) => (
-              <div key={idx} className="question-feedback-card">
+              <div key={q._id || idx} className="question-feedback-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="q-card-header">
-                  <h4>Question {idx + 1}: {q.text}</h4>
-                  <span className="q-score-indicator">{q.score}/100</span>
+                  <h4>Question {idx + 1} of {questions.length}: {q.text}</h4>
+                  <span className={`q-score-indicator ${(q.score || 0) >= 70 ? 'good' : (q.score || 0) >= 50 ? 'average' : 'poor'}`}>
+                    {q.score || 0}/100
+                  </span>
                 </div>
                 
                 <div className="qa-section">
                   <div className="qa-sub-block">
-                    <span className="qa-sub-title">Your Response</span>
+                    <span className="qa-sub-title">Candidate's Response</span>
                     <p className="qa-sub-content transcript-text">
-                      "{q.transcript || 'No answer transcript was recorded.'}"
+                      {q.transcript ? `"${q.transcript}"` : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No answer provided or recorded.</span>}
                     </p>
                   </div>
 
                   {q.recordingUrl && (
                     <div className="qa-sub-block">
-                      <span className="qa-sub-title">Response Replay</span>
+                      <span className="qa-sub-title">Voice Replay</span>
                       <audio 
                         src={q.recordingUrl} 
                         controls 
                         className="custom-audio-element" 
                         controlsList="nodownload"
+                        style={{ marginTop: '0.4rem', width: '100%', maxWidth: '380px' }}
                       />
                     </div>
                   )}
 
                   <div className="qa-sub-block">
-                    <span className="qa-sub-title">AI Feedback</span>
+                    <span className="qa-sub-title">Gemini AI Feedback & Technical Assessment</span>
                     <p className="qa-sub-content" style={{ color: 'var(--text-secondary)' }}>
-                      {q.feedback}
+                      {q.feedback || 'Answer was not evaluated or response was empty.'}
                     </p>
                   </div>
                 </div>

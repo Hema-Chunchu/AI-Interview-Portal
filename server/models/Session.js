@@ -22,6 +22,12 @@ const sessionSchema = new mongoose.Schema({
         default: ""
     },
 
+    status: {
+        type: String,
+        enum: ["in-progress", "completed"],
+        default: "in-progress"
+    },
+
     createdAt: {
         type: Date,
         default: Date.now

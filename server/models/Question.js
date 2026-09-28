@@ -22,6 +22,11 @@ const questionSchema = new mongoose.Schema({
         default: ""
     },
 
+    score: {
+        type: Number,
+        default: 0
+    },
+
     recordingUrl: {
         type: String,
         default: ""
