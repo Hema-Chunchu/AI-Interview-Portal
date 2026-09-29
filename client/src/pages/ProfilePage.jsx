@@ -107,7 +107,6 @@ const ProfilePage = () => {
                   <h2>{userName}</h2>
                   <p>{userEmail}</p>
                   <p style={{ fontSize: '0.85rem', color: 'var(--primary-green)', fontWeight: 600 }}>Software Developer</p>
-                  <button className="btn-secondary-outline" onClick={handleEditProfile}>Edit Profile</button>
                 </div>
               </div>
             </div>
