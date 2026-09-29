@@ -8,6 +8,7 @@ import InterviewPage from './pages/InterviewPage';
 import ReportPage from './pages/ReportPage';
 import ProfilePage from './pages/ProfilePage';
 import HistoryPage from './pages/HistoryPage';
+import SettingsPage from './pages/SettingsPage';
 
 const RootRedirect = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -74,6 +75,15 @@ function App() {
             } 
           />
 
+          <Route 
+            path="/settings" 
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            } 
+          />
+
           {/* Fallback Redirection */}
           <Route 
             path="/" 
@@ -83,9 +93,9 @@ function App() {
             path="*" 
             element={<Navigate to="/" replace />} 
           />
-      </Routes>
-    </Router>
-  </AuthProvider>
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 

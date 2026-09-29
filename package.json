@@ -1,0 +1,13 @@
+{
+  "name": "ai-interview-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-Powered Mock Interview Portal",
+  "scripts": {
+    "dev": "npm run dev --prefix client",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "start": "npm start --prefix server",
+    "test": "npm test --prefix server"
+  }
+}

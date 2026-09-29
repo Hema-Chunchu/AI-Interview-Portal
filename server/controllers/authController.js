@@ -24,7 +24,7 @@ const isDbConnected = async (res) => {
 
 // Helper function to generate JWT token
 const generateToken = (userId) => {
-    const secret = process.env.JWT_SECRET || "fallback_jwt_secret_key_12345";
+    const secret = process.env.JWT_SECRET || "ai_interview_portal_secret_key_2026";
     return jwt.sign({ id: userId }, secret, {
         expiresIn: "7d"
     });
@@ -75,7 +75,7 @@ const registerUser = async (req, res) => {
         const userExists = await User.findOne({ email: normalizedEmail });
         if (userExists) {
             return res.status(400).json({
-                message: "A user with this email already exists."
+                message: "A user with this email already exists. Please sign in or use a different email."
             });
         }
 
@@ -135,7 +135,7 @@ const loginUser = async (req, res) => {
         const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
             return res.status(400).json({
-                message: "Invalid email or password."
+                message: "Invalid email or password. If your account was deleted, please sign up to register again."
             });
         }
 
@@ -169,6 +169,58 @@ const loginUser = async (req, res) => {
     }
 };
 
+// @desc    Authenticate or register user via Social Login (Google / LinkedIn)
+// @route   POST /api/auth/social
+// @access  Public
+const socialLogin = async (req, res) => {
+    try {
+        const { name, email, provider } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                message: "Email address is required for social login."
+            });
+        }
+
+        if (!(await isDbConnected(res))) return;
+
+        const normalizedEmail = email.toLowerCase().trim();
+        let user = await User.findOne({ email: normalizedEmail });
+
+        if (!user) {
+            // Register social user in DB
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(`social_pass_${Date.now()}_${Math.random()}`, salt);
+            user = await User.create({
+                name: (name && name.trim()) || "Social User",
+                email: normalizedEmail,
+                password: hashedPassword,
+                authProvider: provider ? provider.toLowerCase() : "google"
+            });
+            console.log(`✔ [SOCIAL USER REGISTERED IN MONGODB] Email: ${user.email} | Provider: ${user.authProvider}`);
+        }
+
+        const token = generateToken(user._id);
+
+        return res.status(200).json({
+            message: "Social login successful",
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                createdAt: user.createdAt
+            }
+        });
+
+    } catch (error) {
+        console.error("Error in socialLogin:", error);
+        return res.status(500).json({
+            message: error.message || "Server error during social login."
+        });
+    }
+};
+
 // @desc    Get current user profile
 // @route   GET /api/auth/me
 // @access  Private
@@ -180,7 +232,7 @@ const getMe = async (req, res) => {
 
         if (!user) {
             return res.status(404).json({
-                message: "User not found."
+                message: "User account not found."
             });
         }
 
@@ -203,5 +255,6 @@ const getMe = async (req, res) => {
 module.exports = {
     registerUser,
     loginUser,
+    socialLogin,
     getMe
 };
