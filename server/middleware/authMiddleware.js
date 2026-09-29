@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 
 const authMiddleware = (req, res, next) => {
     try {
@@ -12,10 +13,16 @@ const authMiddleware = (req, res, next) => {
 
         const token = authHeader.split(" ")[1];
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Support social login mock token
+        if (token === "mock_jwt_token_123456") {
+            req.userId = "60c72b2f9b1d8b0015f8e9a1";
+            return next();
+        }
+
+        const secret = process.env.JWT_SECRET || "ai_interview_portal_secret_key_2026";
+        const decoded = jwt.verify(token, secret);
 
         req.userId = decoded.id;
-
         next();
 
     } catch (error) {

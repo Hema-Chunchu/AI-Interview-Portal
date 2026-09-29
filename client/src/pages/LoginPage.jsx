@@ -63,7 +63,7 @@ const LoginPage = () => {
     }
   };
 
-  const handleSocialMock = (platform) => {
+  const handleSocialMock = async (platform) => {
     let candidateName = name.trim();
     let candidateEmail = email.trim();
 
@@ -78,12 +78,19 @@ const LoginPage = () => {
       candidateEmail = (enteredEmail && enteredEmail.trim()) ? enteredEmail.trim() : `${defaultEmail}@${platform.toLowerCase()}.com`;
     }
 
-    loginWithSocial({
+    setLoading(true);
+    const result = await loginWithSocial({
       name: candidateName,
-      email: candidateEmail
+      email: candidateEmail,
+      provider: platform.toLowerCase()
     });
+    setLoading(false);
 
-    navigate('/interviews');
+    if (result.success) {
+      navigate('/interviews');
+    } else {
+      setError(result.message || 'Social authentication failed.');
+    }
   };
 
   return (

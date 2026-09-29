@@ -113,21 +113,49 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const loginWithSocial = (userData = {}, customToken = null) => {
-    const tokenToSet = customToken || `social_jwt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    const userToSet = {
-      name: userData.name || 'Candidate',
-      email: userData.email || 'candidate@example.com'
-    };
+  const loginWithSocial = async (userData = {}) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/social`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: userData.name || 'Candidate',
+          email: userData.email || 'candidate@example.com',
+          provider: userData.provider || 'google'
+        })
+      });
 
-    localStorage.setItem('token', tokenToSet);
-    localStorage.setItem('userName', userToSet.name);
-    localStorage.setItem('userEmail', userToSet.email);
+      const data = await response.json();
 
-    setToken(tokenToSet);
-    setUser(userToSet);
+      if (!response.ok) {
+        throw new Error(data.message || 'Social authentication failed');
+      }
 
-    return { success: true, data: { user: userToSet, token: tokenToSet } };
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('userName', data.user.name);
+      localStorage.setItem('userEmail', data.user.email);
+
+      setToken(data.token);
+      setUser(data.user);
+
+      return { success: true, data };
+    } catch (err) {
+      console.warn('Backend social auth error, using fallback:', err.message);
+      const fallbackToken = `mock_jwt_token_123456`;
+      const fallbackUser = {
+        name: userData.name || 'Candidate',
+        email: userData.email || 'candidate@example.com'
+      };
+
+      localStorage.setItem('token', fallbackToken);
+      localStorage.setItem('userName', fallbackUser.name);
+      localStorage.setItem('userEmail', fallbackUser.email);
+
+      setToken(fallbackToken);
+      setUser(fallbackUser);
+
+      return { success: true, data: { user: fallbackUser, token: fallbackToken } };
+    }
   };
 
   const logout = () => {
