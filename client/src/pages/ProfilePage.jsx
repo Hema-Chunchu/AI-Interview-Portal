@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer, 
+  CartesianGrid 
+} from 'recharts';
 import Sidebar from '../components/Sidebar';
 
 const ProfilePage = () => {
@@ -25,7 +33,7 @@ const ProfilePage = () => {
         setHistory(response.data);
       } catch (err) {
         console.error('Failed to load history', err);
-        // Fallback mock history matching the image metrics
+        // Fallback mock history
         const d1 = new Date(); d1.setDate(d1.getDate() - 5);
         const d2 = new Date(); d2.setDate(d2.getDate() - 3);
         const d3 = new Date(); d3.setDate(d3.getDate() - 1);
@@ -48,7 +56,8 @@ const ProfilePage = () => {
     .reverse()
     .map(session => ({
       date: new Date(session.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      score: session.score
+      score: session.score,
+      role: session.role
     }));
 
   if (loading) {
@@ -73,6 +82,10 @@ const ProfilePage = () => {
     }
   };
 
+  const avgScore = history.length > 0 
+    ? Math.round(history.reduce((acc, curr) => acc + curr.score, 0) / history.length) 
+    : 0;
+
   return (
     <div className="app-container">
       <Sidebar />
@@ -82,7 +95,7 @@ const ProfilePage = () => {
           {/* Left Grid Content: Profile details and Stats */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
-            {/* Header Card */}
+            {/* Header Card (Clean layout without mini graph) */}
             <div className="profile-card-header">
               <div className="profile-user-section">
                 <img 
@@ -97,31 +110,6 @@ const ProfilePage = () => {
                   <button className="btn-secondary-outline" onClick={handleEditProfile}>Edit Profile</button>
                 </div>
               </div>
-
-              {/* Top Right Mini Score Line Chart */}
-              {chartData.length > 0 && (
-                <div style={{ width: '220px', height: '100px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <XAxis dataKey="date" hide />
-                      <YAxis hide domain={[0, 100]} />
-                      <Tooltip 
-                        contentStyle={{ background: '#121820', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '6px' }}
-                        labelStyle={{ color: '#8a98a8', fontSize: '11px' }}
-                        itemStyle={{ color: '#00c853', fontSize: '12px', fontWeight: 'bold' }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="score" 
-                        stroke="#00c853" 
-                        strokeWidth={2.5} 
-                        dot={{ fill: '#00c853', r: 3 }}
-                        activeDot={{ r: 5, strokeWidth: 0 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
             </div>
 
             {/* Stats Counter Row */}
@@ -131,11 +119,7 @@ const ProfilePage = () => {
                 <div className="stat-label">Interviews</div>
               </div>
               <div className="stat-box">
-                <div className="stat-value glow-green">
-                  {history.length > 0 
-                    ? Math.round(history.reduce((acc, curr) => acc + curr.score, 0) / history.length) 
-                    : 0}%
-                </div>
+                <div className="stat-value glow-green">{avgScore}%</div>
                 <div className="stat-label">Avg. Score</div>
               </div>
               <div className="stat-box">
@@ -236,62 +220,65 @@ const ProfilePage = () => {
             )}
           </div>
 
-          {/* Right Grid Content: Skills Overview and Badges */}
+          {/* Right Grid Content: Performance Graph replacing Skills Overview */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div className="card-panel">
-              <div className="panel-title">Skills Overview</div>
-              <div className="skills-overview-list">
-                
-                <div className="skill-bar-group">
-                  <div className="skill-bar-header">
-                    <span className="skill-name">System Design</span>
-                    <span className="skill-pct">85%</span>
-                  </div>
-                  <div className="skill-track">
-                    <div className="skill-fill" style={{ width: '85%' }} />
-                  </div>
-                </div>
-
-                <div className="skill-bar-group">
-                  <div className="skill-bar-header">
-                    <span className="skill-name">Data Structures</span>
-                    <span className="skill-pct">78%</span>
-                  </div>
-                  <div className="skill-track">
-                    <div className="skill-fill" style={{ width: '78%' }} />
-                  </div>
-                </div>
-
-                <div className="skill-bar-group">
-                  <div className="skill-bar-header">
-                    <span className="skill-name">Algorithms</span>
-                    <span className="skill-pct">80%</span>
-                  </div>
-                  <div className="skill-track">
-                    <div className="skill-fill" style={{ width: '80%' }} />
-                  </div>
-                </div>
-
-                <div className="skill-bar-group">
-                  <div className="skill-bar-header">
-                    <span className="skill-name">Communication</span>
-                    <span className="skill-pct">75%</span>
-                  </div>
-                  <div className="skill-track">
-                    <div className="skill-fill" style={{ width: '75%' }} />
-                  </div>
-                </div>
-
+            <div className="card-panel" style={{ display: 'flex', flexDirection: 'column', minHeight: '320px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div className="panel-title" style={{ margin: 0 }}>Score Progress</div>
+                <span style={{ fontSize: '0.8rem', color: 'var(--primary-green)', fontWeight: 600 }}>
+                  {history.length} Sessions
+                </span>
               </div>
 
-              {/* Circular Badges Showcase at bottom */}
-              <div className="badges-showcase">
-                <div className="badge-item" title="Star Architect" style={{ fontSize: '1.25rem' }}>🏆</div>
-                <div className="badge-item" title="Algorithmic Guru" style={{ fontSize: '1.25rem' }}>⚡</div>
-                <div className="badge-item" title="Master Communicator" style={{ fontSize: '1.25rem' }}>🗣️</div>
-                <div className="badge-item" title="Perfect Score" style={{ fontSize: '1.25rem' }}>🎯</div>
-                <div className="badge-item" title="Fast Responder" style={{ fontSize: '1.25rem' }}>🚀</div>
-              </div>
+              {chartData.length > 0 ? (
+                <div style={{ width: '100%', height: '240px', marginTop: '0.5rem' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#8a98a8" 
+                        fontSize={11} 
+                        tickLine={false} 
+                      />
+                      <YAxis 
+                        domain={[0, 100]} 
+                        stroke="#8a98a8" 
+                        fontSize={11} 
+                        tickLine={false} 
+                        ticks={[0, 25, 50, 75, 100]} 
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: '#121820', 
+                          border: '1px solid rgba(255,255,255,0.1)', 
+                          borderRadius: '8px',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+                        }}
+                        labelStyle={{ color: '#8a98a8', fontSize: '11px', marginBottom: '4px' }}
+                        itemStyle={{ color: '#00c853', fontSize: '13px', fontWeight: 'bold' }}
+                        formatter={(value) => [`${value}%`, 'Score']}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="#00c853" 
+                        strokeWidth={3} 
+                        dot={{ fill: '#00c853', stroke: '#0c1015', strokeWidth: 2, r: 4 }}
+                        activeDot={{ fill: '#00c853', stroke: '#fff', strokeWidth: 2, r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1.8rem' }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                    Complete your first interview to track your performance trend!
+                  </p>
+                </div>
+              )}
+
+             
             </div>
           </div>
 
