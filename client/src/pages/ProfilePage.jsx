@@ -38,11 +38,11 @@ const ProfilePage = () => {
         const d2 = new Date(); d2.setDate(d2.getDate() - 3);
         const d3 = new Date(); d3.setDate(d3.getDate() - 1);
         
-        setHistory([
-          { _id: 'mock_s1', role: 'System Design Interview', score: 82, createdAt: d1 },
-          { _id: 'mock_s2', role: 'Backend Developer Mock', score: 75, createdAt: d2 },
-          { _id: 'mock_s3', role: 'DP & Algorithms', score: 70, createdAt: d3 }
-        ]);
+        // setHistory([
+        //   { _id: 'mock_s1', role: 'System Design Interview', score: 82, createdAt: d1 },
+        //   { _id: 'mock_s2', role: 'Backend Developer Mock', score: 75, createdAt: d2 },
+        //   { _id: 'mock_s3', role: 'DP & Algorithms', score: 70, createdAt: d3 }
+        // ]);
       } finally {
         setLoading(false);
       }
