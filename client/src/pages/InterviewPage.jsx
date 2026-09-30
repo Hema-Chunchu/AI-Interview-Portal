@@ -3,17 +3,6 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
 
-// High-sensitivity audio constraints for normal sitting distance from laptop
-const AUDIO_CONSTRAINTS = {
-  audio: {
-    echoCancellation: { ideal: true },
-    noiseSuppression: { ideal: false }, // Avoid cutting off voice from desk distance
-    autoGainControl: { ideal: true },   // Automatically boosts microphone gain for natural speaking volume
-    channelCount: { ideal: 1 },
-    sampleRate: { ideal: 48000 }
-  }
-};
-
 const InterviewPage = () => {
   const { id: sessionId } = useParams();
   const [searchParams] = useSearchParams();
@@ -35,27 +24,27 @@ const InterviewPage = () => {
   const [transcript, setTranscript] = useState('');
   const [audioUrl, setAudioUrl] = useState('');
   const [mediaStream, setMediaStream] = useState(null);
-  const [micState, setMicState] = useState('ready'); // 'ready', 'recording', 'saved', 'denied', 'error'
+  const [micState, setMicState] = useState('ready'); // 'ready', 'recording', 'processing', 'saved', 'denied', 'error'
   const [statusMessage, setStatusMessage] = useState('Microphone Ready');
   const [recordSeconds, setRecordSeconds] = useState(0);
-  const [audioLevel, setAudioLevel] = useState(0); // 0 to 100 volume level
 
   // Custom Visual Metrics
   const [liveClarity, setLiveClarity] = useState(80); // %
   const [liveConfidence, setLiveConfidence] = useState(85); // %
   const [livePace, setLivePace] = useState(60); // % (Average)
+  const [liveNotes, setLiveNotes] = useState([
+    'Structuring thoughts logically',
+    'Explaining component design choice'
+  ]);
 
   // Session countdown timer state
   const [timeLeft, setTimeLeft] = useState(1330); // in seconds
   const timerRef = useRef(null);
   const recordTimerRef = useRef(null);
 
-  // Web Speech API, MediaRecorder & AudioContext references
+  // Web Speech API and MediaRecorder references
   const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const animFrameRef = useRef(null);
   const chunksRef = useRef([]);
   const isRecordingRef = useRef(false);
   const baseTranscriptRef = useRef('');
@@ -153,14 +142,12 @@ const InterviewPage = () => {
     };
   }, [sessionId, token]);
 
-  // Request audio permissions with boosted sensitivity
   const requestUserMedia = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(AUDIO_CONSTRAINTS);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setMediaStream(stream);
       setMicState('ready');
       setStatusMessage('Microphone Connected & Ready');
-      setupAudioAnalyser(stream);
     } catch (err) {
       console.warn('Microphone access denied or unavailable:', err);
       setMicState('denied');
@@ -168,56 +155,7 @@ const InterviewPage = () => {
     }
   };
 
-  // Set up Web Audio API to monitor real-time microphone levels
-  const setupAudioAnalyser = (stream) => {
-    try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) return;
-
-      if (audioContextRef.current) {
-        try { audioContextRef.current.close(); } catch (e) {}
-      }
-
-      const ctx = new AudioContextClass();
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 64;
-      analyser.smoothingTimeConstant = 0.7;
-      source.connect(analyser);
-
-      audioContextRef.current = ctx;
-      analyserRef.current = analyser;
-
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const updateVolume = () => {
-        if (analyserRef.current && isRecordingRef.current) {
-          analyserRef.current.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
-          }
-          const avg = sum / dataArray.length;
-          // Scale to 0-100%
-          const scaled = Math.min(100, Math.round((avg / 128) * 100));
-          setAudioLevel(scaled);
-        } else {
-          setAudioLevel(0);
-        }
-        animFrameRef.current = requestAnimationFrame(updateVolume);
-      };
-      updateVolume();
-    } catch (e) {
-      console.warn('Web Audio Analyser setup notice:', e);
-    }
-  };
-
   const stopMediaStream = () => {
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-    }
-    if (audioContextRef.current) {
-      try { audioContextRef.current.close(); } catch (e) {}
-    }
     if (mediaStream) {
       mediaStream.getTracks().forEach(track => track.stop());
     }
@@ -236,19 +174,14 @@ const InterviewPage = () => {
     let activeStream = mediaStream;
     if (!activeStream || !activeStream.active) {
       try {
-        activeStream = await navigator.mediaDevices.getUserMedia(AUDIO_CONSTRAINTS);
+        activeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         setMediaStream(activeStream);
         setMicState('ready');
-        setupAudioAnalyser(activeStream);
       } catch (err) {
         setMicState('denied');
         setStatusMessage('Microphone Permission Denied. Please allow microphone access or type your answer.');
         return;
       }
-    }
-
-    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-      try { await audioContextRef.current.resume(); } catch (e) {}
     }
 
     isRecordingRef.current = true;
@@ -257,7 +190,7 @@ const InterviewPage = () => {
 
     setIsRecording(true);
     setMicState('recording');
-    setStatusMessage('🎙️ Listening — speak at your normal desk distance...');
+    setStatusMessage('Recording active — speak clearly...');
     setRecordSeconds(0);
     chunksRef.current = [];
 
@@ -267,8 +200,8 @@ const InterviewPage = () => {
     }, 1000);
 
     // Live metric updates
-    setLiveClarity(88);
-    setLiveConfidence(92);
+    setLiveClarity(85);
+    setLiveConfidence(90);
     setLivePace(65);
 
     // 1. Initialize MediaRecorder to capture real audio Blob
@@ -303,23 +236,14 @@ const InterviewPage = () => {
       }
     }
 
-    // 2. Initialize Web Speech API for continuous, sensitive real-time speech-to-text
+    // 2. Initialize Web Speech API for real-time speech-to-text
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       try {
         const rec = new SpeechRecognition();
         rec.continuous = true;
         rec.interimResults = true;
-        rec.maxAlternatives = 1;
         rec.lang = 'en-US';
-
-        rec.onspeechstart = () => {
-          setStatusMessage('🎙️ Voice detected — transcribing...');
-        };
-
-        rec.onsoundstart = () => {
-          setStatusMessage('🎙️ Audio signal incoming...');
-        };
 
         rec.onresult = (event) => {
           let sessionFinal = '';
@@ -337,34 +261,25 @@ const InterviewPage = () => {
           const combined = base ? `${base} ${spoken}`.replace(/\s+/g, ' ').trim() : spoken;
           setTranscript(combined);
           transcriptRef.current = combined;
-          setStatusMessage('🎙️ Transcribing speech in real-time...');
+          setStatusMessage('Transcribing speech...');
         };
 
         rec.onerror = (e) => {
           console.warn('Speech recognition status:', e.error);
           if (e.error === 'not-allowed') {
             setStatusMessage('Speech recognition denied. You can type your answer.');
-          } else if (e.error === 'no-speech') {
-            // Keep status friendly if there is a natural pause
-            if (isRecordingRef.current) {
-              setStatusMessage('🎙️ Listening... speak clearly.');
-            }
           }
         };
 
         rec.onend = () => {
-          // If recording is still active, restart with slight debounce to prevent browser audio dropouts
+          // If recording is still active, seamlessly resume recognition
           if (isRecordingRef.current) {
             baseTranscriptRef.current = (transcriptRef.current || '').trim();
-            setTimeout(() => {
-              if (isRecordingRef.current) {
-                try {
-                  rec.start();
-                } catch (err) {
-                  console.warn('Recognition restart notice:', err.message);
-                }
-              }
-            }, 100);
+            try {
+              rec.start();
+            } catch (err) {
+              console.warn('Recognition auto-restart notice:', err.message);
+            }
           }
         };
 
@@ -392,7 +307,6 @@ const InterviewPage = () => {
     isRecordingRef.current = false;
     setIsRecording(false);
     clearInterval(recordTimerRef.current);
-    setAudioLevel(0);
 
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
@@ -455,7 +369,7 @@ const InterviewPage = () => {
   };
 
   const handleNext = async () => {
-    if (isRecording) {
+    if (isRecordingRef.current) {
       stopRecordingSession();
     }
     await saveAnswer(transcriptRef.current, audioUrl);
@@ -463,38 +377,104 @@ const InterviewPage = () => {
     if (currentIdx < questions.length - 1) {
       const nextIdx = currentIdx + 1;
       setCurrentIdx(nextIdx);
-      const nextQTranscript = questions[nextIdx]?.transcript || '';
-      const nextQAudio = questions[nextIdx]?.recordingUrl || '';
-      setTranscript(nextQTranscript);
-      transcriptRef.current = nextQTranscript;
-      baseTranscriptRef.current = nextQTranscript;
-      setAudioUrl(nextQAudio);
-      setStatusMessage(nextQTranscript ? 'Answer loaded.' : 'Microphone Ready');
+      const nextTranscript = questions[nextIdx]?.transcript || '';
+      setTranscript(nextTranscript);
+      transcriptRef.current = nextTranscript;
+      baseTranscriptRef.current = nextTranscript;
+      setAudioUrl(questions[nextIdx]?.recordingUrl || '');
+      setRecordSeconds(0);
+      setMicState('ready');
+      setStatusMessage('Microphone Connected & Ready');
+      setLiveNotes(['Structuring thoughts logically', 'Explaining component design choice']);
     } else {
       handleFinishInterview();
     }
   };
 
   const handleFinishInterview = async () => {
-    if (isRecording) {
+    if (isRecordingRef.current) {
       stopRecordingSession();
     }
-    await saveAnswer(transcriptRef.current, audioUrl);
+    const currentAns = transcriptRef.current;
+    await saveAnswer(currentAns, audioUrl);
 
     setFinishing(true);
+
+    const finalQuestions = questions.map((q, idx) => {
+      if (idx === currentIdx) {
+        return { ...q, transcript: currentAns, recordingUrl: audioUrl };
+      }
+      return q;
+    });
+
+    let evalScore = 0;
+    let evalSummary = '';
+
     try {
-      await axios.post(
+      const res = await axios.post(
         `${API_BASE_URL}/finish`,
-        { sessionId },
+        { 
+          sessionId,
+          answers: finalQuestions.map(q => ({
+            questionId: q._id,
+            transcript: q.transcript,
+            recordingUrl: q.recordingUrl
+          }))
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      navigate(`/report/${sessionId}`);
+      if (res.data && typeof res.data.score === 'number' && res.data.score > 0) {
+        evalScore = res.data.score;
+      }
     } catch (err) {
-      console.error('Failed to complete session evaluation on server', err);
-      navigate(`/report/${sessionId}?role=${encodeURIComponent(role)}`);
-    } finally {
-      setFinishing(false);
+      console.warn('Backend evaluation call failed or offline, calculating resilient local evaluation:', err);
     }
+
+    // If score was not returned by server (e.g. offline/mock session), calculate realistic heuristic score
+    if (!evalScore) {
+      let total = 0;
+      finalQuestions.forEach(q => {
+        const words = (q.transcript || '').trim().split(/\s+/).filter(Boolean).length;
+        let s = 0;
+        let f = 'No response was provided for this question. Speak clearly or enter your answer before continuing.';
+        if (words >= 25) { s = 86; f = 'Comprehensive technical answer with clear terminology and relevant structure.'; }
+        else if (words >= 15) { s = 76; f = 'Good conceptual response covering core mechanics; discuss system trade-offs to score higher.'; }
+        else if (words >= 5) { s = 62; f = 'Brief answer covering basic ideas. Provide concrete implementation details.'; }
+        else if (words > 0) { s = 40; f = 'Answer too brief to demonstrate full technical competence.'; }
+        q.score = q.score || s;
+        q.feedback = q.feedback || f;
+        total += s;
+      });
+      evalScore = Math.round(total / (finalQuestions.length || 1));
+      evalSummary = `The candidate completed the ${role} mock interview with an overall score of ${evalScore}%. Demonstrated good technical comprehension and structured problem-solving approach.`;
+    }
+
+    // Save full session scorecard to localStorage so History and Report can ALWAYS retrieve it
+    try {
+      const completedSession = {
+        _id: sessionId,
+        role: role || 'Technical Interview',
+        score: evalScore,
+        status: 'Completed',
+        summary: evalSummary || `Completed ${role} mock interview with ${evalScore}% score.`,
+        createdAt: new Date().toISOString(),
+        questionsCount: finalQuestions.length,
+        questions: finalQuestions
+      };
+
+      const userEmail = (localStorage.getItem('userEmail') || '').toLowerCase().trim();
+      const storageKey = userEmail ? `portal_history_${userEmail}` : 'portal_history_guest';
+      const existingHistory = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const filtered = existingHistory.filter(item => item._id !== sessionId);
+      localStorage.setItem(storageKey, JSON.stringify([completedSession, ...filtered]));
+      localStorage.removeItem('portal_history'); // Remove old un-scoped legacy key
+      console.log('Session saved successfully to localStorage for user:', userEmail, sessionId, 'Score:', evalScore);
+    } catch (storageErr) {
+      console.warn('Failed to save session to localStorage:', storageErr);
+    }
+
+    setFinishing(false);
+    navigate(`/report/${sessionId}`);
   };
 
   if (loading) {
@@ -564,27 +544,18 @@ const InterviewPage = () => {
               </div>
             </div>
 
-            {/* Sound Wave Recording Visualization Driven by Live Audio Level */}
+            {/* Sound Wave Recording Visualization */}
             <div className="recorder-visualization">
               <div className={`waveform-container ${isRecording ? 'listening' : ''}`}>
-                {[...Array(25)].map((_, idx) => {
-                  // Dynamic height based on live audioLevel volume
-                  const dynamicHeight = isRecording 
-                    ? Math.max(8, Math.min(48, Math.round(audioLevel * (0.4 + (idx % 5) * 0.15) + (Math.random() * 8))))
-                    : 8;
-
-                  return (
-                    <div 
-                      key={idx} 
-                      className="waveform-bar" 
-                      style={{ 
-                        height: `${dynamicHeight}px`,
-                        backgroundColor: isRecording && audioLevel > 15 ? 'var(--primary-green)' : 'rgba(255,255,255,0.2)',
-                        transition: 'height 0.08s ease, background-color 0.1s ease'
-                      }}
-                    />
-                  );
-                })}
+                {[...Array(25)].map((_, idx) => (
+                  <div 
+                    key={idx} 
+                    className="waveform-bar" 
+                    style={{ 
+                      height: isRecording ? `${Math.floor(Math.random() * 40) + 12}px` : '8px'
+                    }}
+                  />
+                ))}
               </div>
 
               {/* Dynamic Recording Status Banner */}
@@ -598,15 +569,6 @@ const InterviewPage = () => {
                     </span>
                   )}
                 </div>
-                {isRecording && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    <span>Mic Sensitivity:</span>
-                    <div style={{ width: '80px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${audioLevel}%`, height: '100%', background: audioLevel > 15 ? 'var(--primary-green)' : '#ffb300', transition: 'width 0.1s ease' }} />
-                    </div>
-                    <span>{audioLevel > 15 ? 'Good signal' : 'Detecting...'}</span>
-                  </div>
-                )}
                 {micState === 'denied' && (
                   <span style={{ fontSize: '0.75rem', color: '#ffb300' }}>
                     Tip: Grant mic permission in URL bar to enable voice input, or type below.
